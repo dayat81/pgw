@@ -206,26 +206,28 @@ void *handlediam(void *diam){
     diameter d = *(diameter*)diam;
     d.populateHeader();
     int ccode=((*(d.ccode) & 0xff) << 16)| ((*(d.ccode+1) & 0xff) << 8) | ((*(d.ccode+2)& 0xff));
-    //printf("ccode %i\n",ccode);
+    printf("ccode %i\n",ccode);
     //send signal to sub
     if(ccode==272){//cea
         std::string sessidval="";
         avp sessid=d.getAVP(263, 0);
         if(sessid.len>0){
             sessidval=util.decodeAsString(sessid);
-            std::cout<<"sessid : "<<sessidval<<std::endl;
+            //std::cout<<"sessid : "<<sessidval<<std::endl;
             //set sessid status in rocksdb
             rocksdb::Status status = db->Put(rocksdb::WriteOptions(),sessidval ,"OK");
         }
     }
-    
+//    delete d.h;
+//    delete d.b;
+    pthread_exit(NULL);
     return 0;
 }
 void *listenup(void *sock){
     int newsock = *(int*)sock;
     char* h=new char[4];
     int n;
-    while (1) {
+    //while (1) {
         while((n=read(newsock,h,4))>0){
             int32_t l =(((0x00 & 0xff) << 24) | ((*(h+1) & 0xff) << 16)| ((*(h+2) & 0xff) << 8) | ((*(h+3) & 0xff)))-4;
             char* b=new char[l];
@@ -243,14 +245,15 @@ void *listenup(void *sock){
         if(n == 0)
         {
             //socket was gracefully closed
-            break;
+            //break;
         }
         else if(n < 0)
         {
             //socket error occurred
-            break;
+            //break;
         }
-    }
+    //}
+    pthread_exit(NULL);
     return 0;
 }
 void *sub(void *args){
@@ -298,7 +301,8 @@ void *sub(void *args){
         }
     }
     printf("%s completed\n",sessid);
-    
+    status = db->Delete(rocksdb::WriteOptions(),sessid);
+    pthread_exit(NULL);
     return 0;
 }
 void *subs(void *args){
@@ -306,7 +310,7 @@ void *subs(void *args){
     //printf("id %i sock %i\n",arg.arg1,arg.arg2);
     
     pthread_t sub_thread;
-    for (int i=1; i<=NUM_CLIENT; i++) {
+    for (int i=1; i<=NUM_SUB; i++) {
         struct sub_struct subarg;
         subarg.arg1=arg.arg1;
         subarg.arg2=arg.arg2;
@@ -317,6 +321,7 @@ void *subs(void *args){
         }
         sleep(1);
     }
+    pthread_exit(NULL);
     return 0;
 }
 void *connection_handler(void *threadid)
@@ -339,7 +344,7 @@ void *connection_handler(void *threadid)
         printf("Failed to connect to server\n");
     }
     
-    printf("Connected successfully client:%d\n", threadnum);
+    //printf("Connected successfully client:%d\n", threadnum);
     //send cer
     diameter req=createReq(threadnum,0,"");
     char* r=new char[req.len+4];
@@ -361,6 +366,15 @@ void *connection_handler(void *threadid)
         diameter d=diameter(h,b,l);
         //d.dump();
     }
+    //create thread to listen data from upstream
+    pthread_t thread;
+    int iret1 = pthread_create( &thread, NULL, listenup, (void*)&sock_desc);
+    if(iret1)
+    {
+        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
+        exit(EXIT_FAILURE);
+    }
+    
     //create thread to simulate subsriber
     pthread_t threads;
     
@@ -374,14 +388,6 @@ void *connection_handler(void *threadid)
         exit(EXIT_FAILURE);
     }
     
-    //create thread to listen data from upstream
-    pthread_t thread;
-    int iret1 = pthread_create( &thread, NULL, listenup, (void*)&sock_desc);
-    if(iret1)
-    {
-        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
-        exit(EXIT_FAILURE);
-    }
     while(1)
     {
         sleep(3);
@@ -399,5 +405,6 @@ void *connection_handler(void *threadid)
         
     }
     close(sock_desc);
+    pthread_exit(NULL);
     return 0;
 }

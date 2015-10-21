@@ -10,13 +10,16 @@
 #include <iostream>
 #include "avputil.h"
 #include "diameter.h"
-#include "rocksdb/db.h"
+#include <map>
+//#include "rocksdb/db.h"
 
 #define MAX_SIZE 50
-#define NUM_CLIENT 4
+#define NUM_CLIENT 2
 #define NUM_SUB 4
 
 volatile int counter = 0;
+//volatile
+std::map<std::string, std::string> m;
 pthread_mutex_t myMutex;
 
 struct arg_struct {
@@ -31,19 +34,19 @@ struct sub_struct {
 void *connection_handler(void *socket_desc);
 void *listenup(void *sock);
 void *subs(void *sock);
-rocksdb::DB* db;
-rocksdb::Options options;
+//rocksdb::DB* db;
+//rocksdb::Options options;
 int main()
 {
     pthread_mutex_init(&myMutex,0);
     
-    options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, "/Users/dayat81/dbfile/pgw", &db);
-    assert(status.ok());
+//    options.create_if_missing = true;
+//    rocksdb::Status status = rocksdb::DB::Open(options, "/Users/dayat81/dbfile/pgw", &db);
+//    assert(status.ok());
     
-    int i;
+    //int i;
     pthread_t sniffer_thread;
-    for (i=1; i<=NUM_CLIENT; i++) {
+    for (int i=1; i<=NUM_CLIENT; i++) {
         if( pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) &i) < 0)
         {
             perror("could not create thread");
@@ -221,7 +224,10 @@ void *handlediam(void *diam){
             sessidval=util.decodeAsString(sessid);
             //std::cout<<"sessid : "<<sessidval<<std::endl;
             //set sessid status in rocksdb
-            rocksdb::Status status = db->Put(rocksdb::WriteOptions(),sessidval ,"OK");
+            //rocksdb::Status status = db->Put(rocksdb::WriteOptions(),sessidval ,"OK");
+            pthread_mutex_lock(&myMutex);
+            m[sessidval]="OK";
+            pthread_mutex_unlock(&myMutex);
         }
     }
 //    delete d.h;
@@ -265,7 +271,7 @@ void *listenup(void *sock){
 void *sub(void *args){
     
     struct sub_struct arg = *(struct sub_struct*)args;
-    //printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
+    printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
     //int i=0;
     const char* id=std::to_string(arg.arg1).c_str();
     const char* extra=std::to_string(arg.arg3).c_str();
@@ -277,7 +283,7 @@ void *sub(void *args){
     while (counter!=NUM_CLIENT*NUM_SUB) {
         sleep(1);
     }
-    printf("counter %i\n",counter);
+    //printf("counter %i\n",counter);
     diameter ccr=createReq(arg.arg1, 2,s);
     char* r=new char[ccr.len+4];
     ccr.compose(r);
@@ -301,17 +307,23 @@ void *sub(void *args){
     strcat(sessid, ";");
     strcat(sessid, s);
     
-    std::string val;
-    rocksdb::Status status;
+//    std::string val;
+//    rocksdb::Status status;
+//    bool found=false;
+//    while (!found) {
+//        status = db->Get(rocksdb::ReadOptions(),sessid ,&val);
+//        if (val=="OK") {
+//            found=true;
+//        }
+//    }
     bool found=false;
     while (!found) {
-        status = db->Get(rocksdb::ReadOptions(),sessid ,&val);
-        if (val=="OK") {
-            found=true;
-        }
+        pthread_mutex_lock(&myMutex);
+        found=m.find(sessid) != m.end();
+        pthread_mutex_unlock(&myMutex);
     }
-    printf("%s completed\n",sessid);
-    status = db->Delete(rocksdb::WriteOptions(),sessid);
+    printf("%s completed, result %s \n",sessid,m[sessid].c_str());
+//    status = db->Delete(rocksdb::WriteOptions(),sessid);
     pthread_exit(NULL);
     return 0;
 }
@@ -321,18 +333,19 @@ void *subs(void *args){
     
     pthread_t sub_thread;
     for (int i=1; i<=NUM_SUB; i++) {
-        struct sub_struct subarg;
-        subarg.arg1=arg.arg1;
-        subarg.arg2=arg.arg2;
-        subarg.arg3=i;
-        if( pthread_create( &sub_thread , NULL ,  sub , (void*) &subarg))
+        struct sub_struct *subarg=new sub_struct();
+        subarg->arg1=arg.arg1;
+        subarg->arg2=arg.arg2;
+        subarg->arg3=i;
+        if( pthread_create( &sub_thread , NULL ,  sub , (void*) subarg))
         {
             perror("could not create thread");
         }
         pthread_mutex_lock(&myMutex);
         counter++;
         pthread_mutex_unlock(&myMutex);
-        sleep(1);
+        //delete subarg;
+        //sleep(1);
     }
     
     pthread_exit(NULL);

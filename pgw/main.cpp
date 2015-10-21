@@ -12,9 +12,15 @@
 
 #define MAX_SIZE 50
 #define NUM_CLIENT 2
+#define NUM_SUB 2
 struct arg_struct {
     int arg1;
     int arg2;
+};
+struct sub_struct {
+    int arg1;
+    int arg2;
+    int arg3;
 };
 void *connection_handler(void *socket_desc);
 void *listenup(void *sock);
@@ -190,9 +196,29 @@ diameter createReq(int trnum,int type,char* subsid){
 void *listenup(void *sock){
     return 0;
 }
+void *sub(void *args){
+    
+    struct sub_struct arg = *(struct sub_struct*)args;
+    printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
+    return 0;
+}
 void *subs(void *args){
     struct arg_struct arg = *(struct arg_struct*)args;
     printf("id %i sock %i\n",arg.arg1,arg.arg2);
+    
+    pthread_t sub_thread;
+    for (int i=1; i<=NUM_CLIENT; i++) {
+        struct sub_struct subarg;
+        subarg.arg1=arg.arg1;
+        subarg.arg2=arg.arg2;
+        subarg.arg3=i;
+        if( pthread_create( &sub_thread , NULL ,  sub , (void*) &subarg))
+        {
+            perror("could not create thread");
+        }
+        sleep(1);
+    }
+
     int i=0;
     const char* id=std::to_string(arg.arg1).c_str();
     const char* extra=std::to_string(i).c_str();
@@ -257,6 +283,7 @@ void *connection_handler(void *threadid)
     }
     //create thread to simulate subsriber
     pthread_t threads;
+    
     struct arg_struct args;
     args.arg1=threadnum;
     args.arg2=sock_desc;

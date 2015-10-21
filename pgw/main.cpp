@@ -13,8 +13,12 @@
 #include "rocksdb/db.h"
 
 #define MAX_SIZE 50
-#define NUM_CLIENT 2
-#define NUM_SUB 2
+#define NUM_CLIENT 4
+#define NUM_SUB 4
+
+volatile int counter = 0;
+pthread_mutex_t myMutex;
+
 struct arg_struct {
     int arg1;
     int arg2;
@@ -31,6 +35,8 @@ rocksdb::DB* db;
 rocksdb::Options options;
 int main()
 {
+    pthread_mutex_init(&myMutex,0);
+    
     options.create_if_missing = true;
     rocksdb::Status status = rocksdb::DB::Open(options, "/Users/dayat81/dbfile/pgw", &db);
     assert(status.ok());
@@ -206,7 +212,7 @@ void *handlediam(void *diam){
     diameter d = *(diameter*)diam;
     d.populateHeader();
     int ccode=((*(d.ccode) & 0xff) << 16)| ((*(d.ccode+1) & 0xff) << 8) | ((*(d.ccode+2)& 0xff));
-    printf("ccode %i\n",ccode);
+    //printf("ccode %i\n",ccode);
     //send signal to sub
     if(ccode==272){//cea
         std::string sessidval="";
@@ -268,6 +274,10 @@ void *sub(void *args){
     strcat(s, "_");
     strcat(s,extra); // append string two to the result.
     //create CCR
+    while (counter!=NUM_CLIENT*NUM_SUB) {
+        sleep(1);
+    }
+    printf("counter %i\n",counter);
     diameter ccr=createReq(arg.arg1, 2,s);
     char* r=new char[ccr.len+4];
     ccr.compose(r);
@@ -319,8 +329,12 @@ void *subs(void *args){
         {
             perror("could not create thread");
         }
+        pthread_mutex_lock(&myMutex);
+        counter++;
+        pthread_mutex_unlock(&myMutex);
         sleep(1);
     }
+    
     pthread_exit(NULL);
     return 0;
 }

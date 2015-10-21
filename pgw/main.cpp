@@ -13,6 +13,7 @@
 #define MAX_SIZE 50
 #define NUM_CLIENT 2
 void *connection_handler(void *socket_desc);
+void *listenup(void *sock);
 int main()
 {
     int socket_desc , new_socket , c , *new_sock, i;
@@ -28,14 +29,39 @@ int main()
     pthread_exit(NULL);
     return 0;
 }
-
-void createCER(avp* &allavp,int &l,int &total,char* ccode){
+void createDWR(int trnum,avp* &allavp,int &l,int &total,char* ccode){
+    *ccode=0x00;
+    *(ccode+1)=0x01;
+    *(ccode+2)=0x18;
+    avputil util=avputil();
+    char f=0x40;
+    char* host="test_host";
+    const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(hostid)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,hostid); // append string two to the result.
+    
+    avp o=util.encodeString(264,0,f,h);
+    avp realm=util.encodeString(296,0,f,"test_realm");
+    l=2;
+    total=o.len+realm.len;
+    allavp=new avp[l];
+    allavp[0]=o;
+    allavp[1]=realm;
+}
+void createCER(int trnum,avp* &allavp,int &l,int &total,char* ccode){
     *ccode=0x00;
     *(ccode+1)=0x01;
     *(ccode+2)=0x01;
     avputil util=avputil();
     char f=0x40;
-    avp o=util.encodeString(264,0,f,"test_host");
+    char* host="test_host";
+    const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(hostid)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,hostid); // append string two to the result.
+    
+    avp o=util.encodeString(264,0,f,h);
     avp realm=util.encodeString(296,0,f,"test_realm");
     l=2;
     total=o.len+realm.len;
@@ -44,14 +70,18 @@ void createCER(avp* &allavp,int &l,int &total,char* ccode){
     allavp[1]=realm;
 }
 
-diameter createReq(){
+diameter createReq(int trnum,int type){
     avp* allavp=new avp[1];
     int l;
     int total;
     char* ccode=new char[3];
     char appId[12];//=new char[12];
     bzero(appId, 12);
-    createCER(allavp,l,total,ccode);
+    if(type==0){
+        createCER(trnum,allavp,l,total,ccode);
+    }else{
+        createDWR(trnum,allavp,l,total,ccode);
+    }
     
     char* h=new char[4];
     *h=0x01;
@@ -113,7 +143,9 @@ diameter createReq(){
     
     return answer;
 }
-
+void *listenup(void *sock){
+    return 0;
+}
 void *connection_handler(void *threadid)
 {
     int threadnum = *(int*)threadid;
@@ -136,7 +168,7 @@ void *connection_handler(void *threadid)
     
     printf("Connected successfully client:%d\n", threadnum);
     //send cer
-    diameter req=createReq();
+    diameter req=createReq(threadnum,0);
     char* r=new char[req.len+4];
     req.compose(r);
     delete req.h;
@@ -154,13 +186,32 @@ void *connection_handler(void *threadid)
         char* b=new char[l];
         n = read(sock_desc,b,l);
         diameter d=diameter(h,b,l);
-        d.dump();
+        //d.dump();
     }
-//    while(1)
-//    {
-//        //create receiver thread
-//        //create socket server and accept client
-//    }
+    //create thread to listen data from upstream
+    pthread_t thread;
+    int iret1 = pthread_create( &thread, NULL, listenup, (void*)&sock_desc);
+    if(iret1)
+    {
+        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
+        exit(EXIT_FAILURE);
+    }
+    while(1)
+    {
+        sleep(3);
+        //sending watchdog every second
+        diameter dwr=createReq(threadnum, 1);
+        char* r=new char[req.len+4];
+        dwr.compose(r);
+        delete dwr.h;
+        delete dwr.b;
+        int w = write(sock_desc,r,dwr.len+4);
+        if(w<=0){
+            //fail write
+        }
+        delete r;
+        
+    }
     close(sock_desc);
     return 0;
 }

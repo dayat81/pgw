@@ -12,8 +12,13 @@
 
 #define MAX_SIZE 50
 #define NUM_CLIENT 2
+struct arg_struct {
+    int arg1;
+    int arg2;
+};
 void *connection_handler(void *socket_desc);
 void *listenup(void *sock);
+void *subs(void *sock);
 int main()
 {
     int socket_desc , new_socket , c , *new_sock, i;
@@ -28,6 +33,43 @@ int main()
     }
     pthread_exit(NULL);
     return 0;
+}
+void createCCR(int trnum,char* subsid,avp* &allavp,int &l,int &total,char* ccode){
+    *ccode=0x00;
+    *(ccode+1)=0x01;
+    *(ccode+2)=0x10;
+    avputil util=avputil();
+    char f=0x40;
+    char* host="test_host";
+    const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(hostid)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,hostid); // append string two to the result.
+    //const char* sid=std::to_string(subsid).c_str();
+    char s[strlen(h)+strlen(subsid)+1];
+    strcpy(s, h);
+    strcat(s, ";");
+    strcat(s, subsid);
+    
+    avp sessid=util.encodeString(263, 0, f, s);
+    avp o=util.encodeString(264,0,f,h);
+    avp realm=util.encodeString(296,0,f,"test_realm");
+    avp reqtype=util.encodeInt32(416, 0, f, 1);
+    avp reqnum=util.encodeInt32(415, 0, f, 0);
+    avp id_t1=util.encodeInt32(450, 0, 0x40, 0);
+    avp id_d1=util.encodeString(444, 0, 0x40, subsid);
+    avp* listavp1[2]={&id_t1,&id_d1};
+    avp sid1=util.encodeAVP(443, 0, 0x40, listavp1, 2);
+    //sessid,reqtype,reqnum,msid
+    l=6;
+    total=sessid.len+o.len+realm.len+reqtype.len+reqnum.len+sid1.len;
+    allavp=new avp[l];
+    allavp[0]=sessid;
+    allavp[1]=o;
+    allavp[2]=realm;
+    allavp[3]=reqtype;
+    allavp[4]=reqnum;
+    allavp[5]=sid1;
 }
 void createDWR(int trnum,avp* &allavp,int &l,int &total,char* ccode){
     *ccode=0x00;
@@ -70,7 +112,7 @@ void createCER(int trnum,avp* &allavp,int &l,int &total,char* ccode){
     allavp[1]=realm;
 }
 
-diameter createReq(int trnum,int type){
+diameter createReq(int trnum,int type,char* subsid){
     avp* allavp=new avp[1];
     int l;
     int total;
@@ -79,8 +121,10 @@ diameter createReq(int trnum,int type){
     bzero(appId, 12);
     if(type==0){
         createCER(trnum,allavp,l,total,ccode);
-    }else{
+    }else if(type==1){
         createDWR(trnum,allavp,l,total,ccode);
+    }else{
+        createCCR(trnum,subsid,allavp,l,total,ccode);
     }
     
     char* h=new char[4];
@@ -146,6 +190,29 @@ diameter createReq(int trnum,int type){
 void *listenup(void *sock){
     return 0;
 }
+void *subs(void *args){
+    struct arg_struct arg = *(struct arg_struct*)args;
+    printf("id %i sock %i\n",arg.arg1,arg.arg2);
+    int i=0;
+    const char* id=std::to_string(arg.arg1).c_str();
+    const char* extra=std::to_string(i).c_str();
+    char s[strlen(id)+strlen(extra)+1];
+    strcpy(s,id); // copy string one into the result.
+    strcat(s, "_");
+    strcat(s,extra); // append string two to the result.
+    //create CCR
+    diameter ccr=createReq(arg.arg1, 2,s);
+    char* r=new char[ccr.len+4];
+    ccr.compose(r);
+    delete ccr.h;
+    delete ccr.b;
+    int w = write(arg.arg2,r,ccr.len+4);
+    if(w<=0){
+        //fail write
+    }
+    delete r;
+    return 0;
+}
 void *connection_handler(void *threadid)
 {
     int threadnum = *(int*)threadid;
@@ -168,7 +235,7 @@ void *connection_handler(void *threadid)
     
     printf("Connected successfully client:%d\n", threadnum);
     //send cer
-    diameter req=createReq(threadnum,0);
+    diameter req=createReq(threadnum,0,"");
     char* r=new char[req.len+4];
     req.compose(r);
     delete req.h;
@@ -188,6 +255,18 @@ void *connection_handler(void *threadid)
         diameter d=diameter(h,b,l);
         //d.dump();
     }
+    //create thread to simulate subsriber
+    pthread_t threads;
+    struct arg_struct args;
+    args.arg1=threadnum;
+    args.arg2=sock_desc;
+    int iret = pthread_create( &threads, NULL, subs, (void*)&args);
+    if(iret)
+    {
+        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret);
+        exit(EXIT_FAILURE);
+    }
+    
     //create thread to listen data from upstream
     pthread_t thread;
     int iret1 = pthread_create( &thread, NULL, listenup, (void*)&sock_desc);
@@ -200,8 +279,8 @@ void *connection_handler(void *threadid)
     {
         sleep(3);
         //sending watchdog every second
-        diameter dwr=createReq(threadnum, 1);
-        char* r=new char[req.len+4];
+        diameter dwr=createReq(threadnum, 1,"");
+        char* r=new char[dwr.len+4];
         dwr.compose(r);
         delete dwr.h;
         delete dwr.b;

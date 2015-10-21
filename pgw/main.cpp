@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <iostream>
 #include "avputil.h"
 #include "diameter.h"
 
@@ -193,13 +194,61 @@ diameter createReq(int trnum,int type,char* subsid){
     
     return answer;
 }
+void *handlediam(void *diam){
+    avputil util=avputil();
+    diameter d = *(diameter*)diam;
+    d.populateHeader();
+    int ccode=((*(d.ccode) & 0xff) << 16)| ((*(d.ccode+1) & 0xff) << 8) | ((*(d.ccode+2)& 0xff));
+    //printf("ccode %i\n",ccode);
+    //send signal to sub
+    if(ccode==272){//cea
+        std::string sessidval="";
+        avp sessid=d.getAVP(263, 0);
+        if(sessid.len>0){
+            sessidval=util.decodeAsString(sessid);
+            std::cout<<"sessid : "<<sessidval<<std::endl;
+            
+        }
+    }
+    
+    return 0;
+}
 void *listenup(void *sock){
+    int newsock = *(int*)sock;
+    char* h=new char[4];
+    int n;
+    while (1) {
+        while((n=read(newsock,h,4))>0){
+            int32_t l =(((0x00 & 0xff) << 24) | ((*(h+1) & 0xff) << 16)| ((*(h+2) & 0xff) << 8) | ((*(h+3) & 0xff)))-4;
+            char* b=new char[l];
+            n = read(newsock,b,l);
+            diameter d=diameter(h,b,l);
+            //create thread to handle diameter answer
+            pthread_t diamthread;
+            int dret = pthread_create( &diamthread, NULL, handlediam, (void*)&d);
+            if(dret)
+            {
+                fprintf(stderr,"Error - pthread_create() return code: %d\n",dret);
+                exit(EXIT_FAILURE);
+            }
+        }
+        if(n == 0)
+        {
+            //socket was gracefully closed
+            break;
+        }
+        else if(n < 0)
+        {
+            //socket error occurred
+            break;
+        }
+    }
     return 0;
 }
 void *sub(void *args){
     
     struct sub_struct arg = *(struct sub_struct*)args;
-    printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
+    //printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
     //int i=0;
     const char* id=std::to_string(arg.arg1).c_str();
     const char* extra=std::to_string(arg.arg3).c_str();
@@ -218,11 +267,14 @@ void *sub(void *args){
         //fail write
     }
     delete r;
+    
+    //wait signal from handlediam
+    
     return 0;
 }
 void *subs(void *args){
     struct arg_struct arg = *(struct arg_struct*)args;
-    printf("id %i sock %i\n",arg.arg1,arg.arg2);
+    //printf("id %i sock %i\n",arg.arg1,arg.arg2);
     
     pthread_t sub_thread;
     for (int i=1; i<=NUM_CLIENT; i++) {

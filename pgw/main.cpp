@@ -271,7 +271,7 @@ void *listenup(void *sock){
 void *sub(void *args){
     
     struct sub_struct arg = *(struct sub_struct*)args;
-    printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
+    //printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
     //int i=0;
     const char* id=std::to_string(arg.arg1).c_str();
     const char* extra=std::to_string(arg.arg3).c_str();
@@ -281,7 +281,7 @@ void *sub(void *args){
     strcat(s,extra); // append string two to the result.
     //create CCR
     while (counter!=NUM_CLIENT*NUM_SUB) {
-        sleep(1);
+        //sleep(1);
     }
     //printf("counter %i\n",counter);
     diameter ccr=createReq(arg.arg1, 2,s);

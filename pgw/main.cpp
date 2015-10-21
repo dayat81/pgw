@@ -10,6 +10,7 @@
 #include <iostream>
 #include "avputil.h"
 #include "diameter.h"
+#include "rocksdb/db.h"
 
 #define MAX_SIZE 50
 #define NUM_CLIENT 2
@@ -26,9 +27,15 @@ struct sub_struct {
 void *connection_handler(void *socket_desc);
 void *listenup(void *sock);
 void *subs(void *sock);
+rocksdb::DB* db;
+rocksdb::Options options;
 int main()
 {
-    int socket_desc , new_socket , c , *new_sock, i;
+    options.create_if_missing = true;
+    rocksdb::Status status = rocksdb::DB::Open(options, "/Users/dayat81/dbfile/pgw", &db);
+    assert(status.ok());
+    
+    int i;
     pthread_t sniffer_thread;
     for (i=1; i<=NUM_CLIENT; i++) {
         if( pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) &i) < 0)
@@ -207,7 +214,8 @@ void *handlediam(void *diam){
         if(sessid.len>0){
             sessidval=util.decodeAsString(sessid);
             std::cout<<"sessid : "<<sessidval<<std::endl;
-            
+            //set sessid status in rocksdb
+            rocksdb::Status status = db->Put(rocksdb::WriteOptions(),sessidval ,"OK");
         }
     }
     
@@ -268,7 +276,28 @@ void *sub(void *args){
     }
     delete r;
     
-    //wait signal from handlediam
+    //read status sessid in roksdb
+    char* host="test_host";
+    //const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(id)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,id); // append string two to the result.
+    //const char* sid=std::to_string(subsid).c_str();
+    char sessid[strlen(h)+strlen(s)+1];
+    strcpy(sessid, h);
+    strcat(sessid, ";");
+    strcat(sessid, s);
+    
+    std::string val;
+    rocksdb::Status status;
+    bool found=false;
+    while (!found) {
+        status = db->Get(rocksdb::ReadOptions(),sessid ,&val);
+        if (val=="OK") {
+            found=true;
+        }
+    }
+    printf("%s completed\n",sessid);
     
     return 0;
 }

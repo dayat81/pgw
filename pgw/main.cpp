@@ -200,6 +200,24 @@ void *sub(void *args){
     
     struct sub_struct arg = *(struct sub_struct*)args;
     printf("id %i sock %i extra %i \n",arg.arg1,arg.arg2,arg.arg3);
+    //int i=0;
+    const char* id=std::to_string(arg.arg1).c_str();
+    const char* extra=std::to_string(arg.arg3).c_str();
+    char s[strlen(id)+strlen(extra)+1];
+    strcpy(s,id); // copy string one into the result.
+    strcat(s, "_");
+    strcat(s,extra); // append string two to the result.
+    //create CCR
+    diameter ccr=createReq(arg.arg1, 2,s);
+    char* r=new char[ccr.len+4];
+    ccr.compose(r);
+    delete ccr.h;
+    delete ccr.b;
+    int w = write(arg.arg2,r,ccr.len+4);
+    if(w<=0){
+        //fail write
+    }
+    delete r;
     return 0;
 }
 void *subs(void *args){
@@ -218,25 +236,6 @@ void *subs(void *args){
         }
         sleep(1);
     }
-
-    int i=0;
-    const char* id=std::to_string(arg.arg1).c_str();
-    const char* extra=std::to_string(i).c_str();
-    char s[strlen(id)+strlen(extra)+1];
-    strcpy(s,id); // copy string one into the result.
-    strcat(s, "_");
-    strcat(s,extra); // append string two to the result.
-    //create CCR
-    diameter ccr=createReq(arg.arg1, 2,s);
-    char* r=new char[ccr.len+4];
-    ccr.compose(r);
-    delete ccr.h;
-    delete ccr.b;
-    int w = write(arg.arg2,r,ccr.len+4);
-    if(w<=0){
-        //fail write
-    }
-    delete r;
     return 0;
 }
 void *connection_handler(void *threadid)

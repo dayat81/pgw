@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AE6B1DC31BDE5014006079DE /* peer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AE6B1DC21BDE5014006079DE /* peer.cpp */; settings = {ASSET_TAGS = (); }; };
 		AEA757FD1BD730C900EF5C82 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AEA757FC1BD730C900EF5C82 /* main.cpp */; };
 		AEA758071BD73E5A00EF5C82 /* avp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AEA758031BD73E5A00EF5C82 /* avp.cpp */; settings = {ASSET_TAGS = (); }; };
 		AEA758081BD73E5A00EF5C82 /* avputil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AEA758051BD73E5A00EF5C82 /* avputil.cpp */; settings = {ASSET_TAGS = (); }; };
@@ -26,6 +27,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AE6B1DC11BDE5001006079DE /* peer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = peer.h; sourceTree = "<group>"; };
+		AE6B1DC21BDE5014006079DE /* peer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = peer.cpp; sourceTree = "<group>"; };
 		AEA757F91BD730C900EF5C82 /* pgw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pgw; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEA757FC1BD730C900EF5C82 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		AEA758031BD73E5A00EF5C82 /* avp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = avp.cpp; path = ../diameter/diameter/avp.cpp; sourceTree = "<group>"; };
@@ -73,6 +76,8 @@
 			isa = PBXGroup;
 			children = (
 				AEA757FC1BD730C900EF5C82 /* main.cpp */,
+				AE6B1DC11BDE5001006079DE /* peer.h */,
+				AE6B1DC21BDE5014006079DE /* peer.cpp */,
 			);
 			path = pgw;
 			sourceTree = "<group>";
@@ -136,6 +141,7 @@
 				AEA758121BD7431500EF5C82 /* diameter.cpp in Sources */,
 				AEA757FD1BD730C900EF5C82 /* main.cpp in Sources */,
 				AEA758071BD73E5A00EF5C82 /* avp.cpp in Sources */,
+				AE6B1DC31BDE5014006079DE /* peer.cpp in Sources */,
 				AEA758081BD73E5A00EF5C82 /* avputil.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

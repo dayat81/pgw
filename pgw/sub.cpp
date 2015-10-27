@@ -24,7 +24,7 @@ sub::sub(char* id,int sock){
 void sub::start(){
     //send pdpstart
     char buffer[256];
-    char* msg="pdpstart\n";
+    char* msg="1_1";
     int res=write(sub::sock, msg, strlen(msg));
     int n = read(sub::sock,buffer,255);
     if (n < 0)

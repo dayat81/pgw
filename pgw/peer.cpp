@@ -11,12 +11,18 @@
 #include "avputil.h"
 #include <pthread.h>
 #include <netinet/in.h>
+#include <map>
 
 struct arg_struct {
     int id;
     int sock;
 };
-
+struct arg_struct1 {
+    int id;
+    int sockup;
+    int sockdown;
+};
+std::map<std::string, int> m;
 peer::peer(int id,int sockup,int sockdown){
     peer::id=id;
     peer::sockup=sockup;
@@ -215,6 +221,7 @@ void *handlediam(void *diam){
         if(sessid.len>0){
             sessidval=util.decodeAsString(sessid);
             //std::cout<<"sessid : "<<sessidval<<std::endl;
+            //map sessid to sub socket
         }
     }
 //    delete d.h;
@@ -254,33 +261,52 @@ void *listenup(void *sock){
     pthread_exit(NULL);
     return 0;
 }
-void *handlesub(void *sock){
-    int newsock = *(int*)sock;
+
+void *handlesub(void *args){
+    //int newsock = *(int*)sock;
+    struct arg_struct1 arg = *(struct arg_struct1*)args;
     int bytes;
     char cClientMessage[32];
     char result[1024];
-    while((bytes = recv(newsock, cClientMessage, sizeof(cClientMessage), 0)) > 0)
+    while((bytes = recv(arg.sockdown, cClientMessage, sizeof(cClientMessage), 0)) > 0)
     {
         printf("submsg:%s\n",cClientMessage);
-        char* msg="OK\n";
-        int res=write(newsock, msg, strlen(msg));
+        //pdpstart : create session id and store socket
+        //get hostid,socketup
+        diameter ccr=createReq(arg.id, 2,cClientMessage);
+        char* r=new char[ccr.len+4];
+        ccr.compose(r);
+        delete ccr.h;
+        delete ccr.b;
+        int w = write(arg.sockup,r,ccr.len+4);
+        if(w<=0){
+            //fail write
+        }
+        delete r;
+        char* msg="OK";
+        int res=write(arg.sockdown, msg, strlen(msg));
     }
     pthread_exit(NULL);
     return 0;
 }
-void *listendown(void *socket){
+void *listendown(void *args){
+    struct arg_struct1 arg = *(struct arg_struct1*)args;
     struct sockaddr cli_addr;
     socklen_t clilen;
-    int sock = *(int*)socket;
+    //int sock = *(int*)arg.sockdown;
     while(1){
-        int newsock = accept(sock, &cli_addr, &clilen);
+        int newsock = accept(arg.sockdown, &cli_addr, &clilen);
         if (newsock == -1) {
             perror("accept");
             return 0;
         }
         printf("sub connected\n");
+        struct arg_struct1 *args1=new arg_struct1();
+        args1->id=arg.id;
+        args1->sockup=arg.sockup;
+        args1->sockdown=newsock;
         pthread_t thread3;
-        int iret3 = pthread_create( &thread3, NULL, handlesub, (void*)&newsock);
+        int iret3 = pthread_create( &thread3, NULL, handlesub, (void*)args1);
         if(iret3)
         {
             fprintf(stderr,"Error - pthread_create() return code: %d\n",iret3);
@@ -332,9 +358,13 @@ void peer::start(){
         fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
     }
     //create thread to listendown
+    struct arg_struct1 *args1=new arg_struct1();
+    args1->id=peer::id;
+    args1->sockup=peer::sockup;
+    args1->sockdown=peer::sockdown;
     pthread_t thread2;
-    int sockdown=peer::sockdown;
-    int iret2 = pthread_create( &thread2, NULL, listendown, (void*)&sockdown);
+    //int sockdown=peer::sockdown;
+    int iret2 = pthread_create( &thread2, NULL, listendown, (void*)args1);
     if(iret2)
     {
         fprintf(stderr,"Error - pthread_create() return code: %d\n",iret2);

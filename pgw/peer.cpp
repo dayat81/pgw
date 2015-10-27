@@ -10,6 +10,7 @@
 #include "diameter.h"
 #include "avputil.h"
 #include <pthread.h>
+#include <netinet/in.h>
 
 struct arg_struct {
     int id;
@@ -253,6 +254,39 @@ void *listenup(void *sock){
     pthread_exit(NULL);
     return 0;
 }
+void *handlesub(void *sock){
+    int newsock = *(int*)sock;
+    int bytes;
+    char cClientMessage[32];
+    char result[1024];
+    while((bytes = recv(newsock, cClientMessage, sizeof(cClientMessage), 0)) > 0)
+    {
+        printf("submsg:%s\n",cClientMessage);
+    }
+    pthread_exit(NULL);
+    return 0;
+}
+void *listendown(void *socket){
+    struct sockaddr cli_addr;
+    socklen_t clilen;
+    int sock = *(int*)socket;
+    while(1){
+        int newsock = accept(sock, &cli_addr, &clilen);
+        if (newsock == -1) {
+            perror("accept");
+            return 0;
+        }
+        printf("sub connected\n");
+        pthread_t thread3;
+        int iret3 = pthread_create( &thread3, NULL, handlesub, (void*)&newsock);
+        if(iret3)
+        {
+            fprintf(stderr,"Error - pthread_create() return code: %d\n",iret3);
+        }
+    }
+    pthread_exit(NULL);
+    return 0;
+}
 void peer::start(){
     struct arg_struct *args=new arg_struct();
     //send cer
@@ -296,4 +330,11 @@ void peer::start(){
         fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
     }
     //create thread to listendown
+    pthread_t thread2;
+    int sockdown=peer::sockdown;
+    int iret2 = pthread_create( &thread2, NULL, listendown, (void*)&sockdown);
+    if(iret2)
+    {
+        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret2);
+    }
 }

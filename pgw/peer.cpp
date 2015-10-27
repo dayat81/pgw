@@ -213,13 +213,15 @@ void *handlediam(void *diam){
     diameter d = *(diameter*)diam;
     d.populateHeader();
     int ccode=((*(d.ccode) & 0xff) << 16)| ((*(d.ccode+1) & 0xff) << 8) | ((*(d.ccode+2)& 0xff));
-    printf("ccode %i\n",ccode);
+    //printf("ccode %i\n",ccode);
     //send signal to sub
     if(ccode==272){//cea
         std::string sessidval="";
         avp sessid=d.getAVP(263, 0);
         if(sessid.len>0){
             sessidval=util.decodeAsString(sessid);
+            char* msg="OK";
+            int res=write(m[sessidval], msg, strlen(msg));
             //std::cout<<"sessid : "<<sessidval<<std::endl;
             //map sessid to sub socket
         }
@@ -271,20 +273,44 @@ void *handlesub(void *args){
     while((bytes = recv(arg.sockdown, cClientMessage, sizeof(cClientMessage), 0)) > 0)
     {
         printf("submsg:%s\n",cClientMessage);
-        //pdpstart : create session id and store socket
-        //get hostid,socketup
-        diameter ccr=createReq(arg.id, 2,cClientMessage);
-        char* r=new char[ccr.len+4];
-        ccr.compose(r);
-        delete ccr.h;
-        delete ccr.b;
-        int w = write(arg.sockup,r,ccr.len+4);
-        if(w<=0){
-            //fail write
+        char* chars_array = strtok(cClientMessage, "#:");
+        int i=0;
+        char* params[3];
+        while(chars_array)
+        {
+            params[i]=chars_array;
+            i++;
+            chars_array = strtok(NULL, "#:");
         }
-        delete r;
-        char* msg="OK";
-        int res=write(arg.sockdown, msg, strlen(msg));
+        if( memcmp( params[0], "pdpstart", strlen( "pdpstart") ) == 0 ) {
+            //pdpstart : create session id and store socket
+            char* host="test_host";
+            const char* hostid=std::to_string(arg.id).c_str();
+            char h[strlen(host)+strlen(hostid)];
+            strcpy(h,host); // copy string one into the result.
+            strcat(h,hostid); // append string two to the result.
+            //const char* sid=std::to_string(subsid).c_str();
+            char s[strlen(h)+strlen(params[1])+1];
+            strcpy(s, h);
+            strcat(s, ";");
+            strcat(s, params[1]);
+            m[s]=arg.sockdown;
+            //get hostid,socketup
+            diameter ccr=createReq(arg.id, 2,params[1]);
+            char* r=new char[ccr.len+4];
+            ccr.compose(r);
+            delete ccr.h;
+            delete ccr.b;
+            int w = write(arg.sockup,r,ccr.len+4);
+            if(w<=0){
+                //fail write
+            }
+            delete r;
+        }else if( memcmp( params[0], "pdpstop", strlen( "pdpstop") ) == 0 ){
+            
+        }
+//        char* msg="OK";
+//        int res=write(arg.sockdown, msg, strlen(msg));
     }
     pthread_exit(NULL);
     return 0;

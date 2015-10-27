@@ -42,78 +42,92 @@
 //rocksdb::Options options;
 int main()
 {
-    //create socket
-    int sock_desc;
-    struct sockaddr_in serv_addr;
-    //char sbuff[MAX_SIZE],rbuff[MAX_SIZE];
-    
-    if((sock_desc = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        printf("Failed creating socket\n");
-    
-    bzero((char *) &serv_addr, sizeof (serv_addr));
-    
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serv_addr.sin_port = htons(3868);
-    
-    if (connect(sock_desc, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
-        printf("Failed to connect to server\n");
+    for (int h=1; h<3; h++) {
+        //create socket
+        int sock_desc;
+        struct sockaddr_in serv_addr;
+        //char sbuff[MAX_SIZE],rbuff[MAX_SIZE];
+        
+        if((sock_desc = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            printf("Failed creating socket\n");
+        
+        bzero((char *) &serv_addr, sizeof (serv_addr));
+        
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        serv_addr.sin_port = htons(3868);
+        
+        if (connect(sock_desc, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
+            printf("Failed to connect to server\n");
+        }
+        //printf("sock_desc:%i\n",sock_desc);
+        struct addrinfo hints, *res;
+        /* Get the address info */
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        int port=10000+h;
+        std::string sport = std::to_string(port);
+        char const *pchar = sport.c_str();
+        if (getaddrinfo("127.0.0.1", pchar, &hints, &res) != 0) {
+            perror("getaddrinfo");
+            return 1;
+        }
+        /* Create the socket */
+        int sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (sock == -1) {
+            perror("socket");
+            return 1;
+        }
+        /* Enable the socket to reuse the address */
+        int reuseaddr = 1;
+        if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) == -1) {
+            perror("setsockopt");
+            return 1;
+        }
+        /* Bind to the address */
+        if (bind(sock, res->ai_addr, res->ai_addrlen) == -1) {
+            perror("bind");
+            return 1;
+        }
+        /* Listen */
+        if (listen(sock, 10) == -1) {
+            perror("listen");
+            return 1;
+        }
+        freeaddrinfo(res);
+        peer *p=new peer(h,sock_desc,sock);
+        p->start();
+        //create subscriber
+        for (int i=1; i<3; i++) {
+            //create socket
+            int sock_desc1;
+            struct sockaddr_in serv_addr1;
+            //char sbuff[MAX_SIZE],rbuff[MAX_SIZE];
+            
+            if((sock_desc1 = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+                printf("Failed creating socket\n");
+            
+            bzero((char *) &serv_addr1, sizeof (serv_addr1));
+            
+            serv_addr1.sin_family = AF_INET;
+            serv_addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
+            serv_addr1.sin_port = htons(10000+h);
+            
+            if (connect(sock_desc1, (struct sockaddr *) &serv_addr1, sizeof (serv_addr1)) < 0) {
+                printf("Failed to connect to server\n");
+            }
+            const char* hostid=std::to_string(h).c_str();
+            const char* subid=std::to_string(i).c_str();
+            printf("subid %s\n",subid);
+            char s[strlen(hostid)+strlen(subid)+1];
+            strcpy(s, hostid);
+            strcat(s, "_");
+            strcat(s, subid);
+            sub *subs=new sub(s, sock_desc1);
+            subs->start();
+        }
     }
-    //printf("sock_desc:%i\n",sock_desc);
-    struct addrinfo hints, *res;
-    /* Get the address info */
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo("127.0.0.1", "10001", &hints, &res) != 0) {
-        perror("getaddrinfo");
-        return 1;
-    }
-    /* Create the socket */
-    int sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sock == -1) {
-        perror("socket");
-        return 1;
-    }
-    /* Enable the socket to reuse the address */
-    int reuseaddr = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) == -1) {
-        perror("setsockopt");
-        return 1;
-    }
-    /* Bind to the address */
-    if (bind(sock, res->ai_addr, res->ai_addrlen) == -1) {
-        perror("bind");
-        return 1;
-    }
-    /* Listen */
-    if (listen(sock, 10) == -1) {
-        perror("listen");
-        return 1;
-    }
-    freeaddrinfo(res);
-    peer p=peer(1,sock_desc,sock);
-    p.start();
-    //create subscriber
-    //create socket
-    int sock_desc1;
-    struct sockaddr_in serv_addr1;
-    //char sbuff[MAX_SIZE],rbuff[MAX_SIZE];
-    
-    if((sock_desc1 = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        printf("Failed creating socket\n");
-    
-    bzero((char *) &serv_addr1, sizeof (serv_addr1));
-    
-    serv_addr1.sin_family = AF_INET;
-    serv_addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serv_addr1.sin_port = htons(10001);
-    
-    if (connect(sock_desc1, (struct sockaddr *) &serv_addr1, sizeof (serv_addr1)) < 0) {
-        printf("Failed to connect to server\n");
-    }
-    sub s=sub("1_1", sock_desc1);
-    s.start();
     sleep(60);
 //    pthread_mutex_init(&myMutex,0);
 //    

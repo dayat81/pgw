@@ -262,6 +262,8 @@ void *handlesub(void *sock){
     while((bytes = recv(newsock, cClientMessage, sizeof(cClientMessage), 0)) > 0)
     {
         printf("submsg:%s\n",cClientMessage);
+        char* msg="OK\n";
+        int res=write(newsock, msg, strlen(msg));
     }
     pthread_exit(NULL);
     return 0;

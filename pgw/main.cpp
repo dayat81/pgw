@@ -11,6 +11,7 @@
 #include "avputil.h"
 #include "diameter.h"
 #include "peer.h"
+#include "sub.h"
 #include <map>
 #include <netdb.h>
 //#include "rocksdb/db.h"
@@ -93,6 +94,26 @@ int main()
     freeaddrinfo(res);
     peer p=peer(1,sock_desc,sock);
     p.start();
+    //create subscriber
+    //create socket
+    int sock_desc1;
+    struct sockaddr_in serv_addr1;
+    //char sbuff[MAX_SIZE],rbuff[MAX_SIZE];
+    
+    if((sock_desc1 = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        printf("Failed creating socket\n");
+    
+    bzero((char *) &serv_addr1, sizeof (serv_addr1));
+    
+    serv_addr1.sin_family = AF_INET;
+    serv_addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr1.sin_port = htons(10001);
+    
+    if (connect(sock_desc1, (struct sockaddr *) &serv_addr1, sizeof (serv_addr1)) < 0) {
+        printf("Failed to connect to server\n");
+    }
+    sub s=sub("1_1", sock_desc1);
+    s.start();
     sleep(60);
 //    pthread_mutex_init(&myMutex,0);
 //    

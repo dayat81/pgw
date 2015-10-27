@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AE6659731BDF30150028CC52 /* sub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AE6659721BDF30150028CC52 /* sub.cpp */; settings = {ASSET_TAGS = (); }; };
 		AE6B1DC31BDE5014006079DE /* peer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AE6B1DC21BDE5014006079DE /* peer.cpp */; settings = {ASSET_TAGS = (); }; };
 		AEA757FD1BD730C900EF5C82 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AEA757FC1BD730C900EF5C82 /* main.cpp */; };
 		AEA758071BD73E5A00EF5C82 /* avp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AEA758031BD73E5A00EF5C82 /* avp.cpp */; settings = {ASSET_TAGS = (); }; };
@@ -27,6 +28,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AE6659711BDF30040028CC52 /* sub.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sub.h; sourceTree = "<group>"; };
+		AE6659721BDF30150028CC52 /* sub.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sub.cpp; sourceTree = "<group>"; };
 		AE6B1DC11BDE5001006079DE /* peer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = peer.h; sourceTree = "<group>"; };
 		AE6B1DC21BDE5014006079DE /* peer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = peer.cpp; sourceTree = "<group>"; };
 		AEA757F91BD730C900EF5C82 /* pgw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pgw; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -78,6 +81,8 @@
 				AEA757FC1BD730C900EF5C82 /* main.cpp */,
 				AE6B1DC11BDE5001006079DE /* peer.h */,
 				AE6B1DC21BDE5014006079DE /* peer.cpp */,
+				AE6659711BDF30040028CC52 /* sub.h */,
+				AE6659721BDF30150028CC52 /* sub.cpp */,
 			);
 			path = pgw;
 			sourceTree = "<group>";
@@ -138,6 +143,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE6659731BDF30150028CC52 /* sub.cpp in Sources */,
 				AEA758121BD7431500EF5C82 /* diameter.cpp in Sources */,
 				AEA757FD1BD730C900EF5C82 /* main.cpp in Sources */,
 				AEA758071BD73E5A00EF5C82 /* avp.cpp in Sources */,

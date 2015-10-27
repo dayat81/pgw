@@ -57,7 +57,7 @@ int main()
     if (connect(sock_desc, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
         printf("Failed to connect to server\n");
     }
-    printf("sock_desc:%i\n",sock_desc);
+    //printf("sock_desc:%i\n",sock_desc);
     peer p=peer(1,sock_desc,sock_desc);
     p.start();
     sleep(60);

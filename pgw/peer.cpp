@@ -188,16 +188,68 @@ void *dwr(void *args){
         delete dwr.h;
         delete dwr.b;
         int w = write(arg.sock,r,dwr.len+4);
-        printf("sending dwr\n");
+        //printf("sending dwr\n");
         if(w<=0){
             //fail write
-            printf("dwr fail\n");
+            printf("sending dwr fail\n");
             break;
         }
         delete r;
         
     }
     close(arg.sock);
+    pthread_exit(NULL);
+    return 0;
+}
+void *handlediam(void *diam){
+    avputil util=avputil();
+    diameter d = *(diameter*)diam;
+    d.populateHeader();
+    int ccode=((*(d.ccode) & 0xff) << 16)| ((*(d.ccode+1) & 0xff) << 8) | ((*(d.ccode+2)& 0xff));
+    printf("ccode %i\n",ccode);
+    //send signal to sub
+    if(ccode==272){//cea
+        std::string sessidval="";
+        avp sessid=d.getAVP(263, 0);
+        if(sessid.len>0){
+            sessidval=util.decodeAsString(sessid);
+            //std::cout<<"sessid : "<<sessidval<<std::endl;
+        }
+    }
+//    delete d.h;
+//    delete d.b;
+    pthread_exit(NULL);
+    return 0;
+}
+void *listenup(void *sock){
+    int newsock = *(int*)sock;
+    char* h=new char[4];
+    int n;
+    //while (1) {
+        while((n=read(newsock,h,4))>0){
+            int32_t l =(((0x00 & 0xff) << 24) | ((*(h+1) & 0xff) << 16)| ((*(h+2) & 0xff) << 8) | ((*(h+3) & 0xff)))-4;
+            char* b=new char[l];
+            n = read(newsock,b,l);
+            diameter d=diameter(h,b,l);
+            //create thread to handle diameter answer
+            pthread_t diamthread;
+            int dret = pthread_create( &diamthread, NULL, handlediam, (void*)&d);
+            if(dret)
+            {
+                fprintf(stderr,"Error - pthread_create() return code: %d\n",dret);
+            }
+        }
+        if(n == 0)
+        {
+            //socket was gracefully closed
+            //break;
+        }
+        else if(n <= 0)
+        {
+            //socket error occurred
+            //break;
+        }
+    //}
     pthread_exit(NULL);
     return 0;
 }
@@ -235,4 +287,13 @@ void peer::start(){
     {
         fprintf(stderr,"Error - pthread_create() return code: %d\n",iret);
     }
+    //create thread to listenup
+    pthread_t thread1;
+    int sock=peer::sockup;
+    int iret1 = pthread_create( &thread1, NULL, listenup, (void*)&sock);
+    if(iret1)
+    {
+        fprintf(stderr,"Error - pthread_create() return code: %d\n",iret1);
+    }
+    //create thread to listendown
 }

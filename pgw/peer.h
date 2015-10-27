@@ -15,7 +15,7 @@ public:
     int sockup;
     int sockdown;
     peer(int id,int sockup,int sockdown);
-    void watchdog();
+    void start();
 };
 
 #endif /* peer_h */

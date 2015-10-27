@@ -59,7 +59,7 @@ int main()
     }
     printf("sock_desc:%i\n",sock_desc);
     peer p=peer(1,sock_desc,sock_desc);
-    p.watchdog();
+    p.start();
     sleep(60);
 //    pthread_mutex_init(&myMutex,0);
 //    

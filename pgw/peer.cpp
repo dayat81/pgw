@@ -42,6 +42,63 @@ void createDWR(int trnum,avp* &allavp,int &l,int &total,char* ccode){
     allavp[0]=o;
     allavp[1]=realm;
 }
+void createCCR(int trnum,char* subsid,avp* &allavp,int &l,int &total,char* ccode){
+    *ccode=0x00;
+    *(ccode+1)=0x01;
+    *(ccode+2)=0x10;
+    avputil util=avputil();
+    char f=0x40;
+    char* host="test_host";
+    const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(hostid)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,hostid); // append string two to the result.
+    //const char* sid=std::to_string(subsid).c_str();
+    char s[strlen(h)+strlen(subsid)+1];
+    strcpy(s, h);
+    strcat(s, ";");
+    strcat(s, subsid);
+
+    avp sessid=util.encodeString(263, 0, f, s);
+    avp o=util.encodeString(264,0,f,h);
+    avp realm=util.encodeString(296,0,f,"test_realm");
+    avp reqtype=util.encodeInt32(416, 0, f, 1);
+    avp reqnum=util.encodeInt32(415, 0, f, 0);
+    avp id_t1=util.encodeInt32(450, 0, 0x40, 0);
+    avp id_d1=util.encodeString(444, 0, 0x40, subsid);
+    avp* listavp1[2]={&id_t1,&id_d1};
+    avp sid1=util.encodeAVP(443, 0, 0x40, listavp1, 2);
+    //sessid,reqtype,reqnum,msid
+    l=6;
+    total=sessid.len+o.len+realm.len+reqtype.len+reqnum.len+sid1.len;
+    allavp=new avp[l];
+    allavp[0]=sessid;
+    allavp[1]=o;
+    allavp[2]=realm;
+    allavp[3]=reqtype;
+    allavp[4]=reqnum;
+    allavp[5]=sid1;
+}
+void createCER(int trnum,avp* &allavp,int &l,int &total,char* ccode){
+    *ccode=0x00;
+    *(ccode+1)=0x01;
+    *(ccode+2)=0x01;
+    avputil util=avputil();
+    char f=0x40;
+    char* host="test_host";
+    const char* hostid=std::to_string(trnum).c_str();
+    char h[strlen(host)+strlen(hostid)];
+    strcpy(h,host); // copy string one into the result.
+    strcat(h,hostid); // append string two to the result.
+
+    avp o=util.encodeString(264,0,f,h);
+    avp realm=util.encodeString(296,0,f,"test_realm");
+    l=2;
+    total=o.len+realm.len;
+    allavp=new avp[l];
+    allavp[0]=o;
+    allavp[1]=realm;
+}
 diameter createReq(int trnum,int type,char* subsid){
     avp* allavp=new avp[1];
     int l;
@@ -49,10 +106,13 @@ diameter createReq(int trnum,int type,char* subsid){
     char* ccode=new char[3];
     char appId[12];//=new char[12];
     bzero(appId, 12);
-
-    createDWR(trnum,allavp,l,total,ccode);
- 
-    
+    if(type==0){
+        createCER(trnum,allavp,l,total,ccode);
+    }else if(type==1){
+        createDWR(trnum,allavp,l,total,ccode);
+    }else{
+        createCCR(trnum,subsid,allavp,l,total,ccode);
+    }
     char* h=new char[4];
     *h=0x01;
     
@@ -115,11 +175,11 @@ diameter createReq(int trnum,int type,char* subsid){
 }
 void *dwr(void *args){
     struct arg_struct arg = *(struct arg_struct*)args;
-    printf("id:%i\n",arg.id);
-    printf("sock:%i\n",arg.sock);
+//    printf("id:%i\n",arg.id);
+//    printf("sock:%i\n",arg.sock);
     while(1)
     {
-        sleep(1);
+        sleep(5);
         //sending watchdog every second
         diameter dwr=createReq(arg.id, 1,"");
         //dwr.dump();
@@ -141,13 +201,34 @@ void *dwr(void *args){
     pthread_exit(NULL);
     return 0;
 }
-void peer::watchdog(){
-    //start dwr thread
+void peer::start(){
     struct arg_struct *args=new arg_struct();
+    //send cer
+    diameter req=createReq(peer::id,0,"");
+    char* r=new char[req.len+4];
+    req.compose(r);
+    delete req.h;
+    delete req.b;
+    int w = write(peer::sockup,r,req.len+4);
+    if(w<=0){
+        //fail write
+    }
+    delete r;
+    //wait cea
+    char* h=new char[4];
+    int n=read(peer::sockup,h,4);
+    if(n>0){
+        int32_t l =(((0x00 & 0xff) << 24) | ((*(h+1) & 0xff) << 16)| ((*(h+2) & 0xff) << 8) | ((*(h+3) & 0xff)))-4;
+        char* b=new char[l];
+        n = read(peer::sockup,b,l);
+        diameter d=diameter(h,b,l);
+        //d.dump();
+    }
+    //start dwr thread
     args->id=peer::id;
     args->sock=peer::sockup;
-    printf("peer id:%i\n",args->id);
-    printf("peer sock:%i\n",args->sock);
+//    printf("peer id:%i\n",args->id);
+//    printf("peer sock:%i\n",args->sock);
     pthread_t threads;
     int iret = pthread_create( &threads, NULL, dwr, (void*)args);
     if(iret)
